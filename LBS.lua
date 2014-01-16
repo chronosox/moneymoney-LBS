@@ -32,7 +32,7 @@
 
 WebBanking{version     = 1.01,
            country     = "de",
-           services    = {"LBS Baden-Würtemberg",
+           services    = {"LBS Baden-Württemberg",
                           "LBS Nord",
                           "LBS Ostdeutsche Landesbausparkasse",
                           "LBS Schleswig-Holstein-Hamburg",
@@ -91,11 +91,11 @@ function InitializeSession (protocol, bankCode, username, customer, password)
   local url = SupportsBank(protocol, bankCode)
   html = HTML(connection:get(url))
 
-  -- Check for errors.
-  if html:xpath("//title"):text() == "Error" then
-    local message = html:xpath("//p"):text()
+  -- Check for temporary errors.
+  local message = html:xpath("//div[contains(@style,'color:red;')]"):text()
+  if string.len(message) > 0 then
     print("Response: " .. message)
-    return "Der Server Ihrer Bank meldet einen internen Fehler. Bitte versuchen Sie es später noch einmal."
+    return MM.localizeText("The server of your bank responded with an internal error. Please try again later.")
   end
 
   -- Fill in login credentials.
@@ -105,13 +105,12 @@ function InitializeSession (protocol, bankCode, username, customer, password)
   -- Submit login form.
   html = HTML(connection:request(html:xpath("//form"):submit()))
   
-  -- Check for errors.
-  if html:xpath("//title"):text() == "Error" then
-    local message = html:xpath("//p"):text()
+  -- Check for login errors.
+  local message = html:xpath("//div[@id='strong']"):text() 
+  if string.len(message) > 0 then
     print("Response: " .. message)
-    return "Der Server Ihrer Bank meldet einen internen Fehler. Bitte versuchen Sie es später noch einmal."
+    return LoginFailed
   end
-
 end
 
 
