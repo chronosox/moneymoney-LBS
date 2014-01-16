@@ -2,6 +2,7 @@
 -- MoneyMoney Web Banking Extension
 -- http://moneymoney-app.com/api/webbanking
 --
+--
 -- The MIT License (MIT)
 --
 -- Copyright (c) 2014 Moritz Müller
@@ -25,22 +26,42 @@
 -- THE SOFTWARE.
 --
 --
--- Support for LBS saving plans.
+-- Support for LBS building savings contracts.
 --
 
 
-WebBanking{version     = 1.00,
+WebBanking{version     = 1.01,
            country     = "de",
-           services    = {"Bausparvertrag LBS"},
-           url         = "https://kundenservice.lbs.de/",
-           description = "Bausparverträge abfragen"}
+           services    = {"LBS Baden-Würtemberg",
+                          "LBS Nord",
+                          "LBS Ostdeutsche Landesbausparkasse",
+                          "LBS Schleswig-Holstein-Hamburg",
+                          "LBS Hessen-Thüringen",
+                          "LBS West",
+                          "LBS Saar"},
+           description = string.format(MM.localizeText("Support for %s building savings contracts"), "LBS")}
 
 
 function SupportsBank (protocol, bankCode)
-  return bankCode == "Bausparvertrag LBS"
-         and
-         protocol == ProtocolWebBanking
+  if protocol == ProtocolWebBanking then
+    if bankCode == "LBS Baden-Würtemberg" then
+      return "https://kundenservice.lbs.de/bw/guiServlet"
+    elseif bankCode == "LBS Nord" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    elseif bankCode == "LBS Ostdeutsche Landesbausparkasse" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    elseif bankCode == "LBS Schleswig-Holstein-Hamburg" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    elseif bankCode == "LBS Hessen-Thüringen" then
+      return "https://kundenservice.lbs.de/ht/guiServlet"
+    elseif bankCode == "LBS West" then
+      return "https://kundenservice.lbs.de/west/guiServlet"
+    elseif bankCode == "LBS Saar" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    end
+  end
 end
+
 
 local function strToDate (str)
   -- Helper function for converting localized date strings to timestamps.
@@ -56,26 +77,25 @@ local function strToAmount (str)
 end
 
 
-function InitializeSession (protocol, bankCode, username, customer, password)
-  cardName = bankCode
+-- The following variables are used to save state.
+local connection
+local html
 
-credentials = {
-    username = username,
-    password = password
-  }
+
+function InitializeSession (protocol, bankCode, username, customer, password)
   -- Create HTTPS connection object.
   connection = Connection()
   connection.language = "de-de"
 
   -- Fetch login page.
-  url = "https://kundenservice.lbs.de/bw/guiServlet"
+  local url = SupportsBank(protocol, bankCode)
   html = HTML(connection:get(url))
 
-  -- Check for errors.
-  if html:xpath("//title"):text() == "Error" then
-    local message = html:xpath("//p"):text()
+  -- Check for temporary errors.
+  local message = html:xpath("//div[contains(@style,'color:red;')]"):text()
+  if string.len(message) > 0 then
     print("Response: " .. message)
-    return "Der Server Ihrer Bank meldet einen internen Fehler. Bitte versuchen Sie es später noch einmal."
+    return MM.localizeText("The server of your bank responded with an internal error. Please try again later.")
   end
 
   -- Fill in login credentials.
@@ -85,13 +105,12 @@ credentials = {
   -- Submit login form.
   html = HTML(connection:request(html:xpath("//form"):submit()))
   
-  -- Check for errors.
-  if html:xpath("//title"):text() == "Error" then
-    local message = html:xpath("//p"):text()
+  -- Check for login errors.
+  local message = html:xpath("//div[@id='strong']"):text() 
+  if string.len(message) > 0 then
     print("Response: " .. message)
-    return "Der Server Ihrer Bank meldet einen internen Fehler. Bitte versuchen Sie es später noch einmal."
+    return LoginFailed
   end
-
 end
 
 
@@ -107,7 +126,6 @@ function ListAccounts (knownAccounts)
 		
 		if string.len(name) > 0 then
 			local account = {
-				bankCode      = bankCode,
 				name          = name,
 				accountNumber = accountNumber,
 				owner         = owner,
@@ -129,11 +147,6 @@ function RefreshAccount (account, since)
 
 
   local accountNumberSelected = account.accountNumber
-  
-  res = InitializeSession(nil, nil, credentials.username, nil, credentials.password)
-       if res then
-         return res
-       end
   
   html:xpath("//td[@class='radio']"):each(function (index, td)
 	html:xpath("//td[@class='radio']/input"):attr("checked", "")
