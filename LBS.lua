@@ -2,6 +2,7 @@
 -- MoneyMoney Web Banking Extension
 -- http://moneymoney-app.com/api/webbanking
 --
+--
 -- The MIT License (MIT)
 --
 -- Copyright (c) 2014 Moritz Müller
@@ -25,22 +26,42 @@
 -- THE SOFTWARE.
 --
 --
--- Support for LBS saving plans.
+-- Support for LBS building savings contracts.
 --
 
 
-WebBanking{version     = 1.00,
+WebBanking{version     = 1.01,
            country     = "de",
-           services    = {"Bausparvertrag LBS"},
-           url         = "https://kundenservice.lbs.de/",
-           description = "Bausparverträge abfragen"}
+           services    = {"LBS Baden-Würtemberg",
+                          "LBS Nord",
+                          "LBS Ostdeutsche Landesbausparkasse",
+                          "LBS Schleswig-Holstein-Hamburg",
+                          "LBS Hessen-Thüringen",
+                          "LBS West",
+                          "LBS Saar"},
+           description = string.format(MM.localizeText("Support for %s building savings contracts"), "LBS")}
 
 
 function SupportsBank (protocol, bankCode)
-  return bankCode == "Bausparvertrag LBS"
-         and
-         protocol == ProtocolWebBanking
+  if protocol == ProtocolWebBanking then
+    if bankCode == "LBS Baden-Würtemberg" then
+      return "https://kundenservice.lbs.de/bw/guiServlet"
+    elseif bankCode == "LBS Nord" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    elseif bankCode == "LBS Ostdeutsche Landesbausparkasse" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    elseif bankCode == "LBS Schleswig-Holstein-Hamburg" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    elseif bankCode == "LBS Hessen-Thüringen" then
+      return "https://kundenservice.lbs.de/ht/guiServlet"
+    elseif bankCode == "LBS West" then
+      return "https://kundenservice.lbs.de/west/guiServlet"
+    elseif bankCode == "LBS Saar" then
+      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+    end
+  end
 end
+
 
 local function strToDate (str)
   -- Helper function for converting localized date strings to timestamps.
@@ -68,7 +89,7 @@ credentials = {
   connection.language = "de-de"
 
   -- Fetch login page.
-  url = "https://kundenservice.lbs.de/bw/guiServlet"
+  local url = SupportsBank(protocol, bankCode)
   html = HTML(connection:get(url))
 
   -- Check for errors.
