@@ -77,13 +77,12 @@ local function strToAmount (str)
 end
 
 
-function InitializeSession (protocol, bankCode, username, customer, password)
-  cardName = bankCode
+-- The following variables are used to save state.
+local connection
+local html
 
-credentials = {
-    username = username,
-    password = password
-  }
+
+function InitializeSession (protocol, bankCode, username, customer, password)
   -- Create HTTPS connection object.
   connection = Connection()
   connection.language = "de-de"
@@ -128,7 +127,6 @@ function ListAccounts (knownAccounts)
 		
 		if string.len(name) > 0 then
 			local account = {
-				bankCode      = bankCode,
 				name          = name,
 				accountNumber = accountNumber,
 				owner         = owner,
@@ -150,11 +148,6 @@ function RefreshAccount (account, since)
 
 
   local accountNumberSelected = account.accountNumber
-  
-  res = InitializeSession(nil, nil, credentials.username, nil, credentials.password)
-       if res then
-         return res
-       end
   
   html:xpath("//td[@class='radio']"):each(function (index, td)
 	html:xpath("//td[@class='radio']/input"):attr("checked", "")
