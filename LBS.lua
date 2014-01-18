@@ -30,7 +30,7 @@
 --
 
 
-WebBanking{version     = 1.01,
+WebBanking{version     = 1.02,
            country     = "de",
            services    = {"LBS Baden-Württemberg",
                           "LBS Nord",
@@ -145,19 +145,17 @@ function RefreshAccount (account, since)
   local balance      = nil
   local transactions = nil
 
-
   local accountNumberSelected = account.accountNumber
-  
+
   html:xpath("//td[@class='radio']"):each(function (index, td)
 	html:xpath("//td[@class='radio']/input"):attr("checked", "")
   end)
-    
+
   html:xpath("//form[@name='kontoausgabe']//tr"):each(function (index, tr)
   	local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
-	
 	if string.len(name) > 0 then	
 		local accountNumber = html:xpath("//form[@name='kontoausgabe']//tr[" .. index .. "]/td[2]"):text()
-	
+
 		if accountNumberSelected == accountNumber then
 			-- load balance
 			balance = strToAmount(html:xpath("//form[@name='kontoausgabe']//tr[" .. index .. "]/td[4]"):text())
@@ -189,6 +187,8 @@ function RefreshAccount (account, since)
 		  table.insert (transactions, transaction)
 	  end
   end)
+  
+  html = HTML(connection:request(html:xpath("//div[@id='sectionnavi']/div[2]/a"):click()))
   return {balance=balance, transactions=transactions}
 
 end
