@@ -30,7 +30,7 @@
 --
 
 
-WebBanking{version     = 1.02,
+WebBanking{version     = 1.03,
            country     = "de",
            services    = {"LBS Baden-Württemberg",
                           "LBS Nord",
@@ -118,7 +118,7 @@ function ListAccounts (knownAccounts)
   local accounts = {}
   local owner = owner
   
-  html:xpath("//form[contains(@name,'kontoausgabe')]//tr"):each(function (index, tr)
+  html:xpath("//form[@class='form']//tr"):each(function (index, tr)
     if index ~= "1" then
 		local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
 		local accountNumber = html:xpath("//tr[" .. index .. "]/td[2]"):text()
@@ -151,17 +151,17 @@ function RefreshAccount (account, since)
 	html:xpath("//td[@class='radio']/input"):attr("checked", "")
   end)
 
-  html:xpath("//form[@name='kontoausgabe']//tr"):each(function (index, tr)
+  html:xpath("//form[@class='form']//tr"):each(function (index, tr)
   	local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
 	if string.len(name) > 0 then	
-		local accountNumber = html:xpath("//form[@name='kontoausgabe']//tr[" .. index .. "]/td[2]"):text()
+		local accountNumber = html:xpath("//form[@class='form']//tr[" .. index .. "]/td[2]"):text()
 
 		if accountNumberSelected == accountNumber then
 			-- load balance
-			balance = strToAmount(html:xpath("//form[@name='kontoausgabe']//tr[" .. index .. "]/td[4]"):text())
+			balance = strToAmount(html:xpath("//form[@class='form']//tr[" .. index .. "]/td[4]"):text())
 	
 			-- set account
-			html:xpath("//form[@name='kontoausgabe']//tr[" .. index .. "]/td[1]/input"):attr("checked", "checked")
+			html:xpath("//form[@class='form']//tr[" .. index .. "]/td[1]/input"):attr("checked", "checked")
 			print("selected: " .. name)
 		end
 	end
@@ -188,7 +188,8 @@ function RefreshAccount (account, since)
 	  end
   end)
   
-  html = HTML(connection:request(html:xpath("//div[@id='sectionnavi']/div[2]/a"):click()))
+  html = HTML(connection:request(html:xpath("//div[@class='buttonsInLine']//a"):click()))
+    
   return {balance=balance, transactions=transactions}
 
 end
@@ -196,7 +197,7 @@ end
 
 function EndSession ()
   -- Navigate to logout page.
-  local a = html:xpath("//a[contains(text(),'beenden')]")
+  local a = html:xpath("//a[contains(text(),'Logoff')]")
   if a:length() > 0 then
     connection:request(a:click())
   end
