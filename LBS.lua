@@ -30,9 +30,10 @@
 --
 
 
-WebBanking{version     = 1.03,
+WebBanking{version     = 1.04,
            country     = "de",
            services    = {"LBS Baden-Württemberg",
+                          "LBS Bayern",
                           "LBS Nord",
                           "LBS Ostdeutsche Landesbausparkasse",
                           "LBS Schleswig-Holstein-Hamburg",
@@ -46,6 +47,8 @@ function SupportsBank (protocol, bankCode)
   if protocol == ProtocolWebBanking then
     if bankCode == "LBS Baden-Württemberg" then
       return "https://kundenservice.lbs.de/bw/guiServlet"
+    elseif bankCode == "LBS Bayern" then
+      return "https://kunden-service.lbs.de/pro51-i1-byos/byosframe/byoslogin"
     elseif bankCode == "LBS Nord" then
       return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
     elseif bankCode == "LBS Ostdeutsche Landesbausparkasse" then
