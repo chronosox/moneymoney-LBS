@@ -30,7 +30,7 @@
 --
 
 
-WebBanking{version     = 1.04,
+WebBanking{version     = 1.06,
            country     = "de",
            services    = {"LBS Baden-Württemberg",
                           "LBS Bayern",
@@ -48,19 +48,19 @@ function SupportsBank (protocol, bankCode)
     if bankCode == "LBS Baden-Württemberg" then
       return "https://kundenservice.lbs.de/bw/guiServlet"
     elseif bankCode == "LBS Bayern" then
-      return "https://kunden-service.lbs.de/pro51-i1-byos/byosframe/byoslogin"
+      return "https://meine.lbs-bayern.de/"
     elseif bankCode == "LBS Nord" then
-      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+      return "https://kunden-service.lbs.de/nord"
     elseif bankCode == "LBS Ostdeutsche Landesbausparkasse" then
-      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+      return "https://kunden-service.lbs.de/ost"
     elseif bankCode == "LBS Schleswig-Holstein-Hamburg" then
-      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+      return "https://kunden-service.lbs.de/shh"
     elseif bankCode == "LBS Hessen-Thüringen" then
       return "https://kundenservice.lbs.de/ht/guiServlet"
     elseif bankCode == "LBS West" then
       return "https://kundenservice.lbs.de/west/guiServlet"
     elseif bankCode == "LBS Saar" then
-      return "https://kunden-service.lbs.de/pro61-i1-ova/internet_online/ovalogin"
+      return "https://kunden-service.lbs.de/saarland"
     end
   end
 end
@@ -94,6 +94,13 @@ function InitializeSession (protocol, bankCode, username, customer, password)
   local url = SupportsBank(protocol, bankCode)
   html = HTML(connection:get(url))
 
+  -- Follow redirect.
+  if html:xpath("//title[contains(text(),'Redirect')]"):length() > 0 then
+    html = HTML(connection:request(html:xpath("//form"):submit()))
+  elseif html:xpath("//input[@name='PROVIDER_ID']"):length() > 0 then
+    html = HTML(connection:request(html:xpath("//form"):submit()))
+  end
+
   -- Check for temporary errors.
   local message = html:xpath("//div[contains(@style,'color:red;')]"):text()
   if string.len(message) > 0 then
@@ -106,10 +113,20 @@ function InitializeSession (protocol, bankCode, username, customer, password)
   html:xpath("//input[@name='IN_PIN']"):attr("value", password)
 
   -- Submit login form.
-  html = HTML(connection:request(html:xpath("//form"):submit()))
-  
+  html = HTML(connection:request(html:xpath("//input[@type='submit']"):click()))
+
   -- Check for login errors.
-  local message = html:xpath("//div[@id='strong']"):text() 
+  local message = html:xpath("//div[@class='alertbox']"):text()
+  if string.len(message) > 0 then
+    print("Response: " .. message)
+    return LoginFailed
+  end
+  local message = html:xpath("//div[@class='technicalError']"):text()
+  if string.len(message) > 0 then
+    print("Response: " .. message)
+    return LoginFailed
+  end
+  local message = html:xpath("//div[contains(@style,'color:red;')]"):text()
   if string.len(message) > 0 then
     print("Response: " .. message)
     return LoginFailed
@@ -120,26 +137,26 @@ end
 function ListAccounts (knownAccounts)
   local accounts = {}
   local owner = owner
-  
-  html:xpath("//form[@class='form']//tr"):each(function (index, tr)
-    if index ~= "1" then
-		local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
-		local accountNumber = html:xpath("//tr[" .. index .. "]/td[2]"):text()
-		local balance = html:xpath("//tr[" .. index .. "]/td[4]"):text()
-		
-		if string.len(name) > 0 then
-			local account = {
-				name          = name,
-				accountNumber = accountNumber,
-				owner         = owner,
-				currency      = string.sub(balance, -3),
-				type          = AccountTypeSavings
-			}
-			table.insert(accounts, account)
+
+  html:xpath("//form//tr"):each(function (index, tr)
+    if index > 1 then
+                local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
+                local accountNumber = html:xpath("//tr[" .. index .. "]/td[2]"):text()
+                local balance = html:xpath("//tr[" .. index .. "]/td[4]"):text()
+
+                if string.len(name) > 0 then
+                        local account = {
+                                name          = name,
+                                accountNumber = accountNumber,
+                                owner         = owner,
+                                currency      = string.sub(balance, -3),
+                                type          = AccountTypeSavings
+                        }
+                        table.insert(accounts, account)
         end
     end
   end)
-  
+
   return accounts
 end
 
@@ -150,56 +167,59 @@ function RefreshAccount (account, since)
 
   local accountNumberSelected = account.accountNumber
 
-  html:xpath("//td[@class='radio']"):each(function (index, td)
-	html:xpath("//td[@class='radio']/input"):attr("checked", "")
+  html:xpath("//form//tr"):each(function (index, tr)
+        local accountNumber = html:xpath("//tr[" .. index .. "]/td[2]"):text()
+
+        if accountNumberSelected == accountNumber then
+                -- load balance
+                balance = strToAmount(html:xpath("//tr[" .. index .. "]/td[4]"):text())
+
+                -- set account
+                local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
+                html:xpath("//tr[" .. index .. "]/td[1]/input"):attr("checked", "checked")
+                print("selected: " .. name)
+        else
+                html:xpath("//tr[" .. index .. "]/td[1]/input"):attr("checked", "")
+        end
   end)
 
-  html:xpath("//form[@class='form']//tr"):each(function (index, tr)
-  	local name = html:xpath("//tr[" .. index .. "]/td[6]"):text()
-	if string.len(name) > 0 then	
-		local accountNumber = html:xpath("//form[@class='form']//tr[" .. index .. "]/td[2]"):text()
-
-		if accountNumberSelected == accountNumber then
-			-- load balance
-			balance = strToAmount(html:xpath("//form[@class='form']//tr[" .. index .. "]/td[4]"):text())
-	
-			-- set account
-			html:xpath("//form[@class='form']//tr[" .. index .. "]/td[1]/input"):attr("checked", "checked")
-			print("selected: " .. name)
-		end
-	end
-  end)
-  
   -- open transactions
-  html = HTML(connection:request(html:xpath("//input[@name='REQ_ID.BSVUMS']"):click()))
+  if html:xpath("//input[@name='REQ_ID.BSVUMS']"):length() > 0 then
+    html = HTML(connection:request(html:xpath("//input[@name='REQ_ID.BSVUMS']"):click()))
+  else
+    html = HTML(connection:request(html:xpath("//input[contains(@name,'Kontoumsaetze')]"):click()))
+  end
 
   transactions = {}
   html:xpath("//table//tr"):each(function (index, tr)
-  
-	  local name = html:xpath("(//table//tr)[" .. index .. "]/td[4]"):text()
-  
-	  if string.len(name) > 0 then
-		  -- parse through statements
-		  
-		  local transaction = {}
-		  transaction.bookingDate = strToDate(html:xpath("(//table//tr)[" .. index .. "]/td[1]"):text())
-		  transaction.valueDate = strToDate(html:xpath("(//table//tr)[" .. index .. "]/td[2]"):text())
-		  transaction.amount = strToAmount(html:xpath("(//table//tr)[" .. index .. "]/td[3]"):text())
-		  transaction.currency = string.sub(html:xpath("(//table//tr)[" .. index .. "]/td[3]"):text(), -3)
-		  transaction.bookingText = html:xpath("(//table//tr)[" .. index .. "]/td[4]"):text()
-		  table.insert (transactions, transaction)
-	  end
+
+          local bookingDate = html:xpath("(//table//tr)[" .. index .. "]/td[1]"):text()
+
+          if string.match(bookingDate, "%d%d.%d%d.%d%d%d%d") then
+                  -- parse through statements
+
+                  local transaction = {}
+                  transaction.bookingDate = strToDate(bookingDate)
+                  transaction.valueDate = strToDate(html:xpath("(//table//tr)[" .. index .. "]/td[2]"):text())
+                  transaction.amount = strToAmount(html:xpath("(//table//tr)[" .. index .. "]/td[3]"):text())
+                  transaction.currency = string.sub(html:xpath("(//table//tr)[" .. index .. "]/td[3]"):text(), -3)
+                  transaction.purpose = html:xpath("(//table//tr)[" .. index .. "]/td[4]"):text()
+                  table.insert (transactions, transaction)
+          end
   end)
-  
-  html = HTML(connection:request(html:xpath("//div[@class='buttonsInLine']//a"):click()))
-    
+
+  if html:xpath("//div[@class='buttonsInLine']//a"):length() > 0 then
+    html = HTML(connection:request(html:xpath("//div[@class='buttonsInLine']//a"):click()))
+  else
+    html = HTML(connection:request(html:xpath("//input[contains(@name,'Kontouebersicht')]"):click()))
+  end
+
   return {balance=balance, transactions=transactions}
 
 end
 
 
 function EndSession ()
-  -- Navigate to logout page.
   local a = html:xpath("//a[contains(text(),'Logoff')]")
   if a:length() > 0 then
     connection:request(a:click())
